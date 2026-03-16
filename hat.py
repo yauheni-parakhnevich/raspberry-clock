@@ -13,6 +13,7 @@ import time
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import requests
+import RPi.GPIO as GPIO
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,9 +29,20 @@ WEATHER_URL = (
 W = 264
 H = 176
 
-# Alternate between clock and forecast every cycle (2 minutes per screen)
+# Waveshare 2.7" HAT button GPIO pins
+KEY1 = 5
+KEY2 = 6
+KEY3 = 13
+KEY4 = 19
+
 SCREEN_CLOCK = 0
 SCREEN_FORECAST = 1
+
+
+def setup_buttons():
+    """Configure the 4 HAT buttons as inputs with pull-up resistors."""
+    for pin in [KEY1, KEY2, KEY3, KEY4]:
+        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 
 def draw_weather_icon(draw, x, y, code, size=24):
@@ -197,11 +209,26 @@ def draw_forecast_screen(draw, weather, fonts):
             draw.line([5, y + row_h - 2, W - 5, y + row_h - 2], fill=0, width=1)
 
 
+def render_screen(epd, screen, weather, fonts):
+    """Render and display the given screen."""
+    now = datetime.now()
+    Himage = Image.new('1', (W, H), 255)
+    draw = ImageDraw.Draw(Himage)
+
+    if screen == SCREEN_CLOCK:
+        draw_clock_screen(draw, now, weather, fonts)
+    else:
+        draw_forecast_screen(draw, weather, fonts)
+
+    epd.display(epd.getbuffer(Himage))
+
+
 epd = epd2in7.EPD()
 
 try:
     epd.init()
     epd.Clear(0xFF)
+    setup_buttons()
 
     font100 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 100)
     font24 = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), 24)
@@ -211,29 +238,40 @@ try:
 
     screen = SCREEN_CLOCK
     weather = None
+    needs_redraw = True
+
+    # Button callbacks set screen and flag a redraw
+    def on_key1(channel):
+        global screen, needs_redraw
+        if screen != SCREEN_CLOCK:
+            screen = SCREEN_CLOCK
+            needs_redraw = True
+
+    def on_key2(channel):
+        global screen, needs_redraw
+        if screen != SCREEN_FORECAST:
+            screen = SCREEN_FORECAST
+            needs_redraw = True
+
+    GPIO.add_event_detect(KEY1, GPIO.FALLING, callback=on_key1, bouncetime=300)
+    GPIO.add_event_detect(KEY2, GPIO.FALLING, callback=on_key2, bouncetime=300)
 
     while True:
-        now = datetime.now()
-
         # Refresh weather data every cycle
         weather = fetch_weather() or weather
 
-        Himage = Image.new('1', (W, H), 255)
-        draw = ImageDraw.Draw(Himage)
+        if needs_redraw or screen == SCREEN_CLOCK:
+            render_screen(epd, screen, weather, fonts)
+            needs_redraw = False
 
-        if screen == SCREEN_CLOCK:
-            draw_clock_screen(draw, now, weather, fonts)
-        else:
-            draw_forecast_screen(draw, weather, fonts)
-
-        epd.display(epd.getbuffer(Himage))
-
-        # Alternate screen
-        screen = SCREEN_FORECAST if screen == SCREEN_CLOCK else SCREEN_CLOCK
-
-        # Sleep until the next full minute
+        # Sleep until the next full minute, but wake on button press
         seconds_to_next_minute = 60 - datetime.now().second
-        time.sleep(seconds_to_next_minute)
+        deadline = time.time() + seconds_to_next_minute
+        while time.time() < deadline:
+            if needs_redraw:
+                render_screen(epd, screen, weather, fonts)
+                needs_redraw = False
+            time.sleep(0.2)
 
 except KeyboardInterrupt:
     logging.info("Stopping...")
