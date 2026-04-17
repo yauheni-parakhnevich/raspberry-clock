@@ -99,6 +99,16 @@ def _draw_cloud(draw, x, y, size):
     draw.ellipse([x + w // 2 - 2, cy + 2, x + w, cy + h], outline=0)
 
 
+def _draw_arrow_up(draw, x, y, size=7):
+    """Small upward-pointing triangle (sunrise indicator)."""
+    draw.polygon([(x, y + size), (x + size, y + size), (x + size // 2, y)], fill=0)
+
+
+def _draw_arrow_down(draw, x, y, size=7):
+    """Small downward-pointing triangle (sunset indicator)."""
+    draw.polygon([(x, y), (x + size, y), (x + size // 2, y + size)], fill=0)
+
+
 def fetch_weather():
     """Fetch weather data from Open-Meteo. Returns dict or None."""
     try:
@@ -139,22 +149,25 @@ def draw_clock_screen(draw, now, weather, fonts):
         precip = current.get('precipitation_probability', 0)
         code = current.get('weather_code', 0)
 
-        # Weather icon
-        draw_weather_icon(draw, 5, 136, code, size=20)
-
-        # Current conditions
-        draw.text((28, 136), "{:.0f}C (feels {:.0f}C) {}% rain".format(temp, feels, precip), font=font14, fill=0)
-
-        # Bottom line: sunrise/sunset + daily min/max
         sunrise = daily.get('sunrise', [''])[0]
         sunset = daily.get('sunset', [''])[0]
         t_min = daily.get('temperature_2m_min', [0])[0]
         t_max = daily.get('temperature_2m_max', [0])[0]
-
         sun_rise_str = sunrise[-5:] if sunrise else '--:--'
         sun_set_str = sunset[-5:] if sunset else '--:--'
-        bottom = "^{} v{}  L{:.0f} H{:.0f}C".format(sun_rise_str, sun_set_str, t_min, t_max)
-        draw.text((20, 156), bottom, font=font14, fill=0)
+
+        # Row 1: weather icon + current temp / feels-like / rain chance
+        draw_weather_icon(draw, 4, 136, code, size=18)
+        row1 = "{:.0f}C  feels {:.0f}C  {}% rain".format(temp, feels, precip)
+        draw.text((26, 137), row1, font=font14, fill=0)
+
+        # Row 2: sunrise, sunset, daily min/max range
+        y2 = 158
+        _draw_arrow_up(draw, 6, y2 + 4, size=7)
+        draw.text((17, y2), sun_rise_str, font=font14, fill=0)
+        _draw_arrow_down(draw, 62, y2 + 4, size=7)
+        draw.text((73, y2), sun_set_str, font=font14, fill=0)
+        draw.text((134, y2), "{:.0f}C / {:.0f}C".format(t_min, t_max), font=font14, fill=0)
 
 
 def draw_forecast_screen(draw, weather, fonts):
