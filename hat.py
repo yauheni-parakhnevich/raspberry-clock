@@ -158,7 +158,7 @@ def draw_clock_screen(draw, now, weather, fonts):
 
         # Row 1: weather icon + current temp / feels-like / rain chance
         draw_weather_icon(draw, 4, 136, code, size=18)
-        row1 = "{:.0f}C  feels {:.0f}C  {}% rain".format(temp, feels, precip)
+        row1 = u"{:.0f}\u00b0C  feels {:.0f}\u00b0C  {}% rain".format(temp, feels, precip)
         draw.text((26, 137), row1, font=font14, fill=0)
 
         # Row 2: sunrise, sunset, daily min/max range
@@ -167,7 +167,7 @@ def draw_clock_screen(draw, now, weather, fonts):
         draw.text((17, y2), sun_rise_str, font=font14, fill=0)
         _draw_arrow_down(draw, 62, y2 + 4, size=7)
         draw.text((73, y2), sun_set_str, font=font14, fill=0)
-        draw.text((134, y2), "{:.0f}C / {:.0f}C".format(t_min, t_max), font=font14, fill=0)
+        draw.text((134, y2), u"{:.0f}\u00b0 / {:.0f}\u00b0C".format(t_min, t_max), font=font14, fill=0)
 
 
 def draw_forecast_screen(draw, weather, fonts):
@@ -210,7 +210,7 @@ def draw_forecast_screen(draw, weather, fonts):
 
         draw.text((5, y + 4), day_name, font=font18, fill=0)
         draw_weather_icon(draw, 60, y + 2, codes[i] if i < len(codes) else 0, size=22)
-        draw.text((90, y + 4), "{:.0f}/{:.0f}C".format(
+        draw.text((90, y + 4), u"{:.0f}\u00b0/{:.0f}\u00b0C".format(
             t_mins[i] if i < len(t_mins) else 0,
             t_maxs[i] if i < len(t_maxs) else 0
         ), font=font18, fill=0)
